@@ -19,14 +19,14 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT }}
         script: |
-          # Masuk ke folder proyek di VPS
-          cd /var/www/web/sajakcodingan-docker/backend-mystock
+          # 1. Masuk ke folder UTAMA proyek (tempat file docker-compose.yml berada)
+          cd /var/www/web/sajakcodingan-docker
           
-          # Ambil update kode terbaru dari GitHub
+          # 2. Ambil update kode terbaru dari GitHub
           git pull origin main
           
-          # Rebuild image Docker dan jalankan ulang container di background
-          docker compose up -d --build
+          # 3. Jalankan ulang container Flask agar Gunicorn memuat kode baru
+          docker restart mystock-backend
           
-          # Bersihkan image/cache Docker lama agar RAM 2GB tetap aman
-          docker image prune -af
+          # 4. Bersihkan image/cache Docker lama agar RAM 2GB tetap aman
+          docker image prune -f
