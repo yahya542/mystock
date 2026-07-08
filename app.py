@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 import sqlite3
 import json
 from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+import io
 
 
 # Load environment variables from .env file
@@ -437,26 +440,6 @@ def health_check():
     }), 200
 
 
-# AI Detection endpoint (placeholder for AI service integration)
-@pn mock detected numbers
-            # In production, send image to AI service and parse response
-            
-            # Mock detected numbers for testing
-            detected_numbers = [
-                '081234567890',
-                '081234567891'
-            ]
-            
-            return {
-                'status': 'success',
-                'numbers': detected_numbers,
-                'message': 'Numbers detected successfully'
-            }, 200
-            
-        except Exception as e:
-            return {'status': 'error', 'message': f'AI detection failed: {str(e)}'}, 500
-
-
 # Product Check Endpoint (Legacy - for backward compatibility)
 @phone_ns.route('/add')
 class PhoneAdd(Resource):
@@ -566,31 +549,7 @@ class PhoneBulkAdd(Resource):
             cursor = conn.cursor()
             
             for phone_number in phone_numbers:
-                phone_number = phone_numbehone_ns.route('/detect-numbers')
-class AIDetectNumbers(Resource):
-    """Detect phone numbers from uploaded image using AI"""
-    
-    def post(self):
-        """
-        Detect phone numbers from image.
-        In production, this would integrate with an AI service like:
-        - Google Vision API
-        - AWS Textract
-        - Custom ML model
-        
-        For now, returns mock data for testing.
-        """
-        try:
-            if 'file' not in request.files:
-                return {'status': 'error', 'message': 'No file provided'}, 400
-            
-            file = request.files['file']
-            
-            if file.filename == '':
-                return {'status': 'error', 'message': 'No file selected'}, 400
-            
-            # TODO: Integrate with actual AI service
-            # For now, returr.strip()
+                phone_number = phone_number.strip()
                 
                 if not phone_number:
                     continue
@@ -631,6 +590,93 @@ class AIDetectNumbers(Resource):
             
         except Exception as e:
             return {'status': 'error', 'message': f'Database error: {str(e)}'}, 500
+
+
+@phone_ns.route('/check-bulk')
+class PhoneBulkCheck(Resource):
+    """Bulk check phone numbers from Excel file"""
+    
+    @phone_ns.response(200, 'Check completed')
+    @phone_ns.response(400, 'Invalid input')
+    def post(self):
+        """Check multiple phone numbers from Excel file"""
+        try:
+            if 'file' not in request.files:
+                return {'status': 'error', 'message': 'No file provided'}, 400
+            
+            file = request.files['file']
+            
+            if file.filename == '':
+                return {'status': 'error', 'message': 'No file selected'}, 400
+            
+            if not file.filename.endswith(('.xlsx', '.xls')):
+                return {'status': 'error', 'message': 'File must be Excel format (.xlsx or .xls)'}, 400
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active
+            
+            phone_numbers = []
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if row and row[0]:
+                    phone_numbers.append(str(row[0]).strip())
+            
+            results = []
+            found_count = 0
+            not_found_count = 0
+            
+            for phone_number in phone_numbers:
+                if not phone_number:
+                    continue
+                
+                cursor.execute('''
+                    SELECT id, phone_number, operator, location, status, product_type, created_at
+                    FROM products
+                    WHERE phone_number = ?
+                ''', (phone_number,))
+                
+                product = cursor.fetchone()
+                
+                if product:
+                    found_count += 1
+                    results.append({
+                        'phone_number': phone_number,
+                        'exists': True,
+                        'product': {
+                            'id': product['id'],
+                            'phone_number': product['phone_number'],
+                            'operator': product['operator'],
+                            'location': product['location'],
+                            'status': product['status'],
+                            'product_type': product['product_type'],
+                            'created_at': product['created_at']
+                        }
+                    })
+                else:
+                    not_found_count += 1
+                    results.append({
+                        'phone_number': phone_number,
+                        'exists': False,
+                        'product': None
+                    })
+            
+            conn.close()
+            
+            return {
+                'status': 'success',
+                'data': {
+                    'results': results,
+                    'total_checked': len(results),
+                    'found': found_count,
+                    'not_found': not_found_count
+                },
+                'message': f'Checked {len(results)} numbers: {found_count} found, {not_found_count} not found'
+            }, 200
+            
+        except Exception as e:
+            return {'status': 'error', 'message': f'Bulk check failed: {str(e)}'}, 500
 
 
 @products_ns.route('/check')
