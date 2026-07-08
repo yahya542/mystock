@@ -20,9 +20,9 @@ jobs:
         port: ${{ secrets.SSH_PORT }}
         script: |
           # 1. Masuk ke folder UTAMA proyek (tempat file docker-compose.yml berada)
-          cd /var/www/web/sajakcodingan-docker
+          cd /var/www/web/sajakcodingan-docker/backend-mystock
           
-          # 2. Ambil update kode terbaru dari GitHub
+          # 2. Ambil update kode terbaru dari GitHubok
           git pull origin main
           
           # 3. Jalankan ulang container Flask agar Gunicorn memuat kode baru
