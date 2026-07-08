@@ -1,0 +1,398 @@
+# 🧪 TESTING GUIDE - Multi-Product Stock Management API v3.0
+
+## 📋 Cara Menjalankan Server
+
+```bash
+cd /home/yahya/mystock/stok
+python3 app.py
+```
+
+Server akan berjalan di: `http://localhost:5008`
+Swagger UI: `http://localhost:5008/api/docs`
+
+---
+
+## 🎯 Test Scenarios
+
+### **Scenario 1: Setup Produk Baru (Token Listrik)**
+
+#### **Step 1: Daftarkan Product Type**
+```bash
+curl -X POST "http://localhost:5008/api/product-types" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type_code": "TOKEN",
+    "type_name": "Token Listrik",
+    "required_fields": ["nomor_meteran", "nominal"],
+    "optional_fields": ["kode_token", "catatan"],
+    "description": "Token listrik prabayar PLN"
+  }'
+```
+
+**Expected Response (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 2,
+    "type_code": "TOKEN",
+    "type_name": "Token Listrik",
+    "required_fields": ["nomor_meteran", "nominal"],
+    "optional_fields": ["kode_token", "catatan"],
+    "description": "Token listrik prabayar PLN"
+  },
+  "message": "Product type Token Listrik registered successfully"
+}
+```
+
+---
+
+#### **Step 2: Tambah Produk Token Listrik**
+```bash
+curl -X POST "http://localhost:5008/api/products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_type": "TOKEN",
+    "nomor_meteran": "14123456",
+    "nominal": 50000,
+    "kode_token": "9921-1123-4452",
+    "location": "rak_b",
+    "catatan": "Pelanggan VIP"
+  }'
+```
+
+**Expected Response (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 1,
+    "product_type": "TOKEN",
+    "nomor_meteran": "14123456",
+    "nominal": 50000,
+    "kode_token": "9921-1123-4452",
+    "location": "rak_b",
+    "catatan": "Pelanggan VIP",
+    "status": "active"
+  },
+  "message": "Product created successfully"
+}
+```
+
+---
+
+### **Scenario 2: Tambah Kartu Perdana (dengan Field Custom)**
+
+```bash
+curl -X POST "http://localhost:5008/api/products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_type": "KARTU",
+    "phone_number": "085236345671",
+    "operator": "telkomsel",
+    "location": "etalase1",
+    "harga_modal": 15000,
+    "masa_aktif": "30 hari",
+    "bonus": "Pulsa 10K"
+  }'
+```
+
+**Expected Response (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 2,
+    "product_type": "KARTU",
+    "phone_number": "085236345671",
+    "operator": "telkomsel",
+    "location": "etalase1",
+    "harga_modal": 15000,
+    "masa_aktif": "30 hari",
+    "bonus": "Pulsa 10K",
+    "status": "active"
+  },
+  "message": "Product created successfully"
+}
+```
+
+---
+
+### **Scenario 3: Test Validasi Required Fields**
+
+```bash
+curl -X POST "http://localhost:5008/api/products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_type": "TOKEN",
+    "location": "rak_c"
+  }'
+```
+
+**Expected Response (400):**
+```json
+{
+  "status": "error",
+  "message": "Field 'nomor_meteran' is required for product type TOKEN"
+}
+```
+
+---
+
+### **Scenario 4: Query dengan Filter JSON Field**
+
+#### **Filter berdasarkan Native Field:**
+```bash
+curl "http://localhost:5008/api/products?product_type=KARTU"
+```
+
+#### **Filter berdasarkan JSON Field:**
+```bash
+curl "http://localhost:5008/api/products?product_type=KARTU&harga_modal=15000"
+```
+
+#### **Filter Multiple Fields:**
+```bash
+curl "http://localhost:5008/api/products?product_type=TOKEN&nominal=50000&status=active"
+```
+
+**Expected Response (200) - AUTO FLATTENED:**
+```json
+[
+  {
+    "id": 1,
+    "product_type": "TOKEN",
+    "nomor_meteran": "14123456",
+    "nominal": 50000,
+    "kode_token": "9921-1123-4452",
+    "location": "rak_b",
+    "status": "active",
+    "catatan": "Pelanggan VIP",
+    "created_at": "2026-05-20 10:00:00"
+  }
+]
+```
+
+---
+
+### **Scenario 5: Update Produk (Merge Flex Fields)**
+
+#### **Update Native Field:**
+```bash
+curl -X PUT "http://localhost:5008/api/products/2" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "etalase2",
+    "status": "inactive"
+  }'
+```
+
+#### **Update/Tambah Flex Field:**
+```bash
+curl -X PUT "http://localhost:5008/api/products/2" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harga_modal": 18000,
+    "supplier": "PT ABC"
+  }'
+```
+
+**Expected Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Product updated successfully"
+}
+```
+
+---
+
+### **Scenario 6: Get Detail Produk**
+
+```bash
+curl "http://localhost:5008/api/products/2"
+```
+
+**Expected Response (200) - FLATTENED:**
+```json
+{
+  "id": 2,
+  "product_type": "KARTU",
+  "phone_number": "085236345671",
+  "operator": "telkomsel",
+  "location": "etalase2",
+  "status": "inactive",
+  "harga_modal": 18000,
+  "masa_aktif": "30 hari",
+  "bonus": "Pulsa 10K",
+  "supplier": "PT ABC",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+---
+
+### **Scenario 7: List Semua Product Types**
+
+```bash
+curl "http://localhost:5008/api/product-types"
+```
+
+**Expected Response (200):**
+```json
+[
+  {
+    "id": 1,
+    "type_code": "KARTU",
+    "type_name": "Kartu Perdana",
+    "required_fields": ["phone_number", "operator"],
+    "optional_fields": ["harga_modal", "masa_aktif", "bonus", "catatan"],
+    "description": "Produk kartu perdana fisik dengan berbagai operator",
+    "is_active": true,
+    "created_at": "..."
+  },
+  {
+    "id": 2,
+    "type_code": "TOKEN",
+    "type_name": "Token Listrik",
+    "required_fields": ["nomor_meteran", "nominal"],
+    "optional_fields": ["kode_token", "catatan"],
+    "description": "Token listrik prabayar PLN",
+    "is_active": true,
+    "created_at": "..."
+  }
+]
+```
+
+---
+
+### **Scenario 8: Backward Compatibility (Legacy Phone API)**
+
+```bash
+curl -X POST "http://localhost:5008/api/phone/add" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "08123456789",
+    "operator": "xl",
+    "location": "counter_a"
+  }'
+```
+
+**Expected Response (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 3,
+    "phone_number": "08123456789",
+    "operator": "xl",
+    "location": "counter_a",
+    "status": "active",
+    "product_type": "KARTU",
+    "exists": true
+  },
+  "message": "Nomor berhasil ditambahkan ke database"
+}
+```
+
+---
+
+### **Scenario 9: Global Search**
+
+```bash
+curl "http://localhost:5008/api/products?search=telkomsel"
+```
+
+Ini akan mencari di semua kolom native DAN di dalam flex_fields JSON.
+
+---
+
+### **Scenario 10: Delete Produk**
+
+```bash
+curl -X DELETE "http://localhost:5008/api/products/1"
+```
+
+**Expected Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Product deleted successfully"
+}
+```
+
+---
+
+## 🔍 Verifikasi Database
+
+Untuk melihat data langsung di SQLite:
+
+```bash
+sqlite3 stok_kartu.db
+
+# Lihat semua produk
+SELECT * FROM products;
+
+# Lihat flex_fields dalam format JSON yang rapi
+SELECT id, product_type, phone_number, json_tree(flex_fields) FROM products;
+
+# Lihat product types
+SELECT * FROM product_type_config;
+
+# Query JSON field
+SELECT * FROM products WHERE json_extract(flex_fields, '$.harga_modal') = 15000;
+```
+
+---
+
+## ✅ Checklist Testing
+
+- [ ] Product Type berhasil dibuat (TOKEN, WIFI, dll)
+- [ ] Produk dengan field dinamis berhasil disimpan
+- [ ] Validasi required_fields berjalan
+- [ ] Filter berdasarkan native field bekerja
+- [ ] Filter berdasarkan JSON field bekerja
+- [ ] Response GET sudah flat (tidak perlu parse JSON)
+- [ ] Update produk merge flex_fields dengan benar
+- [ ] Legacy Phone API masih berfungsi
+- [ ] Data lama otomatis dapat product_type = "KARTU"
+- [ ] Global search bekerja di semua field
+- [ ] Delete produk berhasil
+
+---
+
+## 🎯 Key Features yang Sudah Diimplementasi
+
+✅ **Auto-detect Native vs Flex Fields**  
+✅ **Validasi berdasarkan Product Type Config**  
+✅ **JSON Filtering dengan json_extract()**  
+✅ **Auto-Flattened Response**  
+✅ **Merge Strategy untuk UPDATE**  
+✅ **Backward Compatibility**  
+✅ **Global Search**  
+✅ **Swagger Documentation**  
+
+---
+
+## 📚 Endpoint Summary
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/product-types` | List semua product types |
+| POST | `/api/product-types` | Buat product type baru |
+| GET | `/api/product-types/:code` | Detail product type |
+| PUT | `/api/product-types/:code` | Update product type |
+| DELETE | `/api/product-types/:code` | Delete product type |
+| GET | `/api/products` | List products (dengan filter) |
+| POST | `/api/products` | Tambah product (dynamic fields) |
+| GET | `/api/products/:id` | Detail product |
+| PUT | `/api/products/:id` | Update product (merge flex) |
+| DELETE | `/api/products/:id` | Delete product |
+| POST | `/api/phone/add` | Legacy - Add phone |
+| POST | `/api/phone/add-bulk` | Legacy - Bulk add phones |
+| POST | `/api/products/check` | Legacy - Check phone |
+
+---
+
+**Selamat Testing! 🚀**
